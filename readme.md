@@ -1,10 +1,14 @@
-# Spring PetClinic Sample Application [![Build Status](https://travis-ci.org/spring-projects/spring-petclinic.png?branch=main)](https://travis-ci.org/spring-projects/spring-petclinic/)
+# Spring PetClinic Sample Application [![Build Status](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml/badge.svg)](https://github.com/spring-projects/spring-petclinic/actions/workflows/maven-build.yml)
 
 ## Understanding the Spring Petclinic application with a few diagrams
 <a href="https://speakerdeck.com/michaelisvy/spring-petclinic-sample-application">See the presentation here</a>
 
 ## Running petclinic locally
-Petclinic is a [Spring Boot](https://spring.io/guides/gs/spring-boot) application built using [Maven](https://spring.io/guides/gs/maven/). You can build a jar file and run it from the command line:
+
+> *Note:* The beginning of this `readme.md` file is from the [original Spring PetClinic](https://github.com/spring-projects/spring-petclinic.git) sample app.              
+> To see how to deploy this Accelerator Sample version of Spring PetClinic, go to [Deploying to Kubernetes](#deploying-to-kubernetes)
+
+Petclinic is a [Spring Boot](https://spring.io/guides/gs/spring-boot) application built using [Maven](https://spring.io/guides/gs/maven/). You can build a jar file and run it from the command line (it should work just as well with Java 8, 11 or 17):
 
 
 ```
@@ -26,6 +30,8 @@ Or you can run it from Maven directly using the Spring Boot Maven plugin. If you
 
 > NOTE: Windows users should set `git config core.autocrlf true` to avoid format assertions failing the build (use `--global` to set that flag globally).
 
+> NOTE: If you prefer to use Gradle, you can build the app using `./gradlew build` and look for the jar file in `build/libs`.
+
 ## In case you find a bug/suggested improvement for Spring Petclinic
 Our issue tracker is available here: https://github.com/spring-projects/spring-petclinic/issues
 
@@ -36,15 +42,21 @@ In its default configuration, Petclinic uses an in-memory database (H2) which
 gets populated at startup with data. The h2 console is automatically exposed at `http://localhost:8080/h2-console`
 and it is possible to inspect the content of the database using the `jdbc:h2:mem:testdb` url.
  
-A similar setup is provided for MySql in case a persistent database configuration is needed. Note that whenever the database type is changed, the app needs to be run with a different profile: `spring.profiles.active=mysql` for MySql.
+A similar setup is provided for MySQL and PostgreSQL in case a persistent database configuration is needed. Note that whenever the database type is changed, the app needs to be run with a different profile: `spring.profiles.active=mysql` for MySQL or `spring.profiles.active=postgres` for PostgreSQL.
 
-You could start MySql locally with whatever installer works for your OS, or with docker:
+You could start MySQL or PostgreSQL locally with whatever installer works for your OS, or with docker:
 
 ```
 docker run -e MYSQL_USER=petclinic -e MYSQL_PASSWORD=petclinic -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=petclinic -p 3306:3306 mysql:5.7.8
+docker run -e POSTGRES_USER=petclinic -e POSTGRES_PASSWORD=petclinic -e POSTGRES_DB=petclinic -p 5432:5432 postgres:14.1
 ```
 
-Further documentation is provided [here](https://github.com/spring-projects/spring-petclinic/blob/main/src/main/resources/db/mysql/petclinic_db_setup_mysql.txt).
+Further documentation is provided for [MySQL](https://github.com/spring-projects/spring-petclinic/blob/main/src/main/resources/db/mysql/petclinic_db_setup_mysql.txt)
+and for [PostgreSQL](https://github.com/spring-projects/spring-petclinic/blob/main/src/main/resources/db/postgres/petclinic_db_setup_postgres.txt).
+
+## Compiling the CSS
+
+There is a `petclinic.css` in `src/main/resources/static/resources/css`. It was generated from the `petclinic.scss` source, combined with the [Bootstrap](https://getbootstrap.com/) library. If you make changes to the `scss`, or upgrade Bootstrap, you will need to re-compile the CSS resources using the Maven profile "css", i.e. `./mvnw package -P css`. There is no build profile for Gradle to compile the CSS.
 
 ## Working with Petclinic in your IDE
 
@@ -133,52 +145,37 @@ The Spring PetClinic sample application is released under version 2.0 of the [Ap
 [spring-petclinic-graphql]: https://github.com/spring-petclinic/spring-petclinic-graphql
 [spring-petclinic-kotlin]: https://github.com/spring-petclinic/spring-petclinic-kotlin
 [spring-petclinic-rest]: https://github.com/spring-petclinic/spring-petclinic-rest
+# Deploying to Kubernetes
 
-# Deployment with skaffold
+> NOTE: The provided `config/workload.yaml` file uses the Git URL for this sample. When you want to modify the source, you must push the code to your own Git repository and then update the `spec.source.git` information in the `config/workload.yaml` file.
 
-## Build the application and deploy to Kubernetes
+## Deploying to Kubernetes as a TAP workload with Tanzu CLI
 
-For a local cluster like Minikube or Docker Desktop you can simply run:
+If you make modifications to the source, push these changes to your own Git repository.
 
-```bash
-skaffold run --port-forward --profile=local --tail
+When you are done developing your app, you can simply deploy it using:
+
+```
+tanzu apps workload apply -f config/workload.yaml
 ```
 
-For a remote cluster you need to specify the `default-repo` which is the registry prefix for the image that is being built. For Docker Hub the prefix would be your Docker ID, for other registries it would typically be the registry URL plus your project.
+If you would like deploy the code from tyour local working directory you can use the following command:
 
-> **NOTE**: You must specify a registry prefix where you have permission to push images.
-
-You can do this globally by running:
-
-```bash
-skaffold config set --global default-repo ${REGISTRY_PREFIX}
+```
+tanzu apps workload create spring-petclinic -f config/workload.yaml \
+  --local-path . \
+  --source-image <REPOSITORY-PREFIX>/spring-petclinic-source \
+  --type web
 ```
 
-Or, you can set it for the current Kubernetes context:
+## Accessing the app deployed to your cluster
 
-```bash
-skaffold config set default-repo ${REGISTRY_PREFIX}
+Determine the URL to use for the accessing the app by running:
+
+```
+tanzu apps workload get spring-petclinic
 ```
 
-Finally, you can specify it as part of the `run` command:
+To access the deployed app use the URL shown under "Workload Knative Services".
 
-```bash
-skaffold run --default-repo ${REGISTRY_PREFIX} --port-forward --tail
-```
-
-The `skaffold run` command will build the container image, deploy the application and port-forward the service to `localhost:8080`
-
-Open another terminal window to interract with the application or Kubernetes API server.
-
-You can use `kubectl get all` to verify that the resources were created.
-
-If you leave out the `--port-forward` option then accessing the application's endpoint varies based on the type of Kubernetes cluster and ingress configuration you are using.
-
-## Delete the application
-
-To delete the deployment and the service from your Kubernetes cluster run:
-
-```bash
-skaffold delete
-```
-# spring-petclinic-tap
+This depends on the TAP installation having DNS configured for the Knative ingress.
